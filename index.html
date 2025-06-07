@@ -748,10 +748,347 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  //... Javascript logic from your last upload, unchanged ...
-  // For brevity, assume full JS is here as in your uploaded code and previous assistant messages.
+  const tabs = {
+    home: document.getElementById('tab-home'),
+    browse: document.getElementById('tab-browse'),
+    profile: document.getElementById('tab-profile')
+  };
+  const navHomeBtn = document.getElementById('navHomeBtn');
+  const navBrowseBtn = document.getElementById('navBrowseBtn');
+  const navProfileBtn = document.getElementById('navProfileBtn');
+  const navButtons = [navHomeBtn, navBrowseBtn, navProfileBtn];
+  let currentTab = 'home';
 
-  // Folder navigation synchronization and other features from your original upload should work now.
+  function switchTab(target) {
+    if(target === currentTab) return;
+    Object.values(tabs).forEach(tab => tab.classList.remove('active'));
+    tabs[target].classList.add('active');
+
+    navButtons.forEach(btn => btn.setAttribute('aria-current', 'false'));
+    if(target === 'home') navHomeBtn.setAttribute('aria-current', 'page');
+    else if(target === 'browse') navBrowseBtn.setAttribute('aria-current', 'page');
+    else if(target === 'profile') navProfileBtn.setAttribute('aria-current', 'page');
+
+    currentTab = target;
+
+    if(target === 'browse') {
+      fetchMarkdownFiles();
+    }
+  }
+
+  navHomeBtn.addEventListener('click', () => switchTab('home'));
+  navBrowseBtn.addEventListener('click', () => switchTab('browse'));
+  navProfileBtn.addEventListener('click', () => switchTab('profile'));
+
+  // Sidebar toggle
+  const menuButton = document.getElementById('menuButton');
+  const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  const mainContent = document.getElementById('mainContent');
+  const floatingSidebarToggle = document.getElementById('floatingSidebarToggle');
+
+  function openSidebar() {
+    sidebar.classList.add('open');
+    mainContent.classList.add('sidebar-open');
+    floatingSidebarToggle.setAttribute('aria-expanded', 'true');
+    sidebarOverlay.classList.add('active');
+    sidebar.focus();
+  }
+  function closeSidebar() {
+    sidebar.classList.remove('open');
+    mainContent.classList.remove('sidebar-open');
+    floatingSidebarToggle.setAttribute('aria-expanded', 'false');
+    sidebarOverlay.classList.remove('active');
+    floatingSidebarToggle.focus();
+  }
+
+  menuButton.addEventListener('click', () => {
+    if(sidebar.classList.contains('open')) closeSidebar();
+    else openSidebar();
+  });
+  floatingSidebarToggle.addEventListener('click', () => {
+    if(sidebar.classList.contains('open')) closeSidebar();
+    else openSidebar();
+  });
+  sidebarOverlay.addEventListener('click', closeSidebar);
+
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
+  });
+
+  // Disable sidebar toggle on desktop
+  function handleResize() {
+    if(window.innerWidth >= 1024) {
+      sidebar.classList.add('open');
+      mainContent.classList.add('sidebar-open');
+      floatingSidebarToggle.setAttribute('aria-expanded', 'true');
+      sidebarOverlay.classList.remove('active');
+      sidebarOverlay.style.display = 'none';
+    } else {
+      sidebar.classList.remove('open');
+      mainContent.classList.remove('sidebar-open');
+      floatingSidebarToggle.setAttribute('aria-expanded', 'false');
+      sidebarOverlay.style.display = '';
+    }
+  }
+  window.addEventListener('resize', handleResize);
+  handleResize();
+
+  // Data and functionality for study materials, downloads, notifications
+
+  const studyMaterials = [
+    {id:'mat1', title:'Mathematics Basics', description:'Start with algebra, geometry, and calculus fundamentals.', details:'12 lessons', downloadUrl:'https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf'},
+    {id:'mat2', title:'Physics Principles', description:'Understand motion, forces, energy, and waves.', details:'9 lessons', downloadUrl:'https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf'},
+    {id:'mat3', title:'Chemistry Essentials', description:'Explore atoms, molecules, reactions, and periodic trends.', details:'15 lessons', downloadUrl:'https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf'},
+    {id:'mat4', title:'Biology Intro', description:'Learn about cells, genetics, ecology, and evolution.', details:'11 lessons', downloadUrl:'https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf'},
+    {id:'mat5', title:'History Overview', description:'Dive into world history from ancient to modern times.', details:'8 lessons', downloadUrl:'https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf'},
+    {id:'mat6', title:'Computer Science', description:'Discover algorithms, programming basics, and data structures.', details:'14 lessons', downloadUrl:'https://file-examples-com.github.io/uploads/2017/10/file-sample_150kB.pdf'}
+  ];
+
+  const cardsContainer = document.getElementById('studyCards');
+  const ongoingDownloads = [];
+  const completedDownloads = [];
+  const notifications = [];
+  const notificationsList = document.getElementById('notificationsList');
+  const ongoingDownloadsList = document.getElementById('ongoingDownloadsList');
+  const downloadsList = document.getElementById('downloadsList');
+
+  function renderNotifications() {
+    notificationsList.innerHTML = '';
+    if (notifications.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty-list';
+      li.textContent = 'No notifications';
+      notificationsList.appendChild(li);
+    } else {
+      notifications.forEach(note => {
+        const li = document.createElement('li');
+        li.textContent = note;
+        notificationsList.appendChild(li);
+      });
+    }
+  }
+
+  function addNotification(message) {
+    notifications.unshift(message);
+    if (notifications.length > 20) notifications.pop();
+    renderNotifications();
+  }
+
+  function renderOngoingDownloads() {
+    ongoingDownloadsList.innerHTML = '';
+    if (ongoingDownloads.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty-list';
+      li.textContent = 'No ongoing downloads';
+      ongoingDownloadsList.appendChild(li);
+    } else {
+      ongoingDownloads.forEach(download => {
+        const li = document.createElement('li');
+        li.textContent = `${download.name} — ${download.progress}%`;
+        ongoingDownloadsList.appendChild(li);
+      });
+    }
+  }
+
+  function renderCompletedDownloads() {
+    downloadsList.innerHTML = '';
+    if (completedDownloads.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty-list';
+      li.textContent = 'No downloads';
+      downloadsList.appendChild(li);
+    } else {
+      completedDownloads.forEach(download => {
+        const li = document.createElement('li');
+        li.textContent = download.name;
+        const openButton = document.createElement('button');
+        openButton.className = 'open-btn';
+        openButton.type = 'button';
+        openButton.setAttribute('aria-label', `Open downloaded file ${download.name}`);
+        openButton.textContent = 'Open';
+        openButton.addEventListener('click', () => {
+          window.open(download.url, '_blank', 'noopener');
+        });
+        li.appendChild(openButton);
+        downloadsList.appendChild(li);
+      });
+    }
+  }
+
+  function createStudyCard(material) {
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-pressed', 'false');
+    card.setAttribute('aria-label', `Study material: ${material.title}`);
+
+    card.innerHTML = `
+      <h2>${material.title}</h2>
+      <p>${material.description}</p>
+      <div class="details">${material.details}</div>
+    `;
+
+    const subContent = document.createElement('div');
+    subContent.className = 'sub-content';
+    subContent.setAttribute('aria-hidden', 'true');
+    subContent.style.display = 'none';
+
+    const downloadButton = document.createElement('button');
+    downloadButton.className = 'download-button';
+    downloadButton.textContent = 'Download 📥';
+    downloadButton.setAttribute('aria-label', `Download ${material.title}`);
+    downloadButton.type = 'button';
+
+    downloadButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startDownload(material);
+    });
+
+    subContent.appendChild(downloadButton);
+    card.appendChild(subContent);
+
+    card.addEventListener('click', () => {
+      const isActive = subContent.style.display === 'block';
+      if (isActive) {
+        subContent.style.display = 'none';
+        subContent.setAttribute('aria-hidden', 'true');
+        card.setAttribute('aria-pressed', 'false');
+      } else {
+        document.querySelectorAll('.card .sub-content.active').forEach(el => {
+          el.style.display = 'none';
+          el.classList.remove('active');
+          el.parentElement.setAttribute('aria-pressed', 'false');
+          el.setAttribute('aria-hidden', 'true');
+        });
+        subContent.style.display = 'block';
+        subContent.classList.add('active');
+        subContent.setAttribute('aria-hidden', 'false');
+        card.setAttribute('aria-pressed', 'true');
+      }
+    });
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        card.click();
+      }
+    });
+
+    return card;
+  }
+
+  function renderStudyCards() {
+    cardsContainer.innerHTML = '';
+    studyMaterials.forEach(mat => {
+      const card = createStudyCard(mat);
+      cardsContainer.appendChild(card);
+    });
+  }
+
+  function startDownload(material) {
+    if (ongoingDownloads.some(d => d.id === material.id) || completedDownloads.some(d => d.id === material.id)) {
+      alert(`"${material.title}" is already downloading or downloaded.`);
+      return;
+    }
+    const downloadItem = { id: material.id, name: material.title, progress: 0, url: material.downloadUrl };
+    ongoingDownloads.push(downloadItem);
+    renderOngoingDownloads();
+
+    const intervalId = setInterval(() => {
+      downloadItem.progress += Math.floor(Math.random() * 15) + 5;
+      if (downloadItem.progress >= 100) {
+        downloadItem.progress = 100;
+        clearInterval(intervalId);
+        const idx = ongoingDownloads.findIndex(d => d.id === downloadItem.id);
+        if (idx !== -1) ongoingDownloads.splice(idx, 1);
+        completedDownloads.push(downloadItem);
+        renderOngoingDownloads();
+        renderCompletedDownloads();
+        addNotification(`Download complete: "${material.title}"`);
+      } else {
+        renderOngoingDownloads();
+      }
+    }, 800);
+  }
+
+  // GitHub fetch function for markdown files
+  const githubOwner = 'octokit';
+  const githubRepo = 'octokit.rb';
+  const githubPath = '';
+  const browseLoading = document.getElementById('browseLoading');
+  const fileList = document.getElementById('fileList');
+
+  async function fetchMarkdownFiles() {
+    browseLoading.style.display = 'block';
+    fileList.innerHTML = '';
+    fileList.setAttribute('aria-busy', 'true');
+    try {
+      const url = `https://api.github.com/repos/${githubOwner}/${githubRepo}/contents/${githubPath}?ref=main`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('GitHub API error: ' + response.status);
+      const data = await response.json();
+      const mdFiles = data.filter(item => item.type === 'file' && item.name.toLowerCase().endsWith('.md'));
+      if (mdFiles.length === 0) {
+        fileList.innerHTML = '<li class="empty-list">No Markdown files found in this repository.</li>';
+      } else {
+        mdFiles.forEach(file => {
+          const li = document.createElement('li');
+          li.tabIndex = 0;
+          li.textContent = file.name;
+          li.title = `Open ${file.name} on GitHub`;
+          li.style.userSelect = 'text';
+
+          li.addEventListener('click', () => {
+            window.open(file.download_url || file.html_url, '_blank', 'noopener');
+          });
+          li.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              li.click();
+            }
+          });
+
+          fileList.appendChild(li);
+        });
+      }
+    } catch (err) {
+      fileList.innerHTML = '<li class="empty-list" style="color: red;">Failed to load files. Please try again later.</li>';
+      console.error(err);
+    } finally {
+      browseLoading.style.display = 'none';
+      fileList.removeAttribute('aria-busy');
+    }
+  }
+
+  function simulateNotificationUpdates() {
+    const messages = [
+      'New study material "Advanced Math" uploaded!',
+      'Scheduled maintenance on Friday at 9 PM.',
+      "Don't forget to review past lessons.",
+      'Physics Principles updated with new exercises!',
+      'Biology Intro: New video lessons added!'
+    ];
+    setInterval(() => {
+      const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+      addNotification(randomMessage);
+    }, 15000);
+  }
+
+  renderStudyCards();
+  renderNotifications();
+  renderOngoingDownloads();
+  renderCompletedDownloads();
+  simulateNotificationUpdates();
+
+  document.getElementById('startStudyingBtn').addEventListener('click', () => {
+    switchTab('browse');
+  });
+  document.getElementById('sidebarStudyBtn').addEventListener('click', () => switchTab('home'));
+  document.getElementById('sidebarBrowseBtn').addEventListener('click', () => switchTab('browse'));
+  document.getElementById('sidebarProfileBtn').addEventListener('click', () => switchTab('profile'));
+  document.getElementById('sidebarSettingsBtn').addEventListener('click', () => alert('Settings tool coming soon!'));
+  document.getElementById('sidebarHelpBtn').addEventListener('click', () => alert('Help tool coming soon!'));
 });
 </script>
 </body>
